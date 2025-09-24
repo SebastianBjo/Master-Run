@@ -16,11 +16,18 @@ BLACK = (0, 0, 0)
 RED   = (200, 50, 50)
 BLUE  = (50, 120, 255)
 GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
 
 # Clock
 FPS = 60
 clock = pygame.time.Clock()
 
+# --- Buff Class ---
+class Buff:
+    def __init__(self, name, value, duration):
+        self.name = name
+        self.value = value
+        self.end_time = time.time() + duration
 
 # --- Player Class ---
 class Player:
@@ -30,14 +37,26 @@ class Player:
         self.speed = 4
         self.dash_speed = 12
         self.last_dash = 0
-        self.dash_cooldown = 2  # seconds
+        self.dash_cooldown = 2
         self.last_shot = 0
-        self.shot_cooldown = 0.3  # seconds
+        self.shot_cooldown = 0.3
         self.projectiles = []
 
-        # Health
         self.max_health = 100
         self.health = self.max_health
+
+        # XP / Cash / Level
+        self.xp = 0
+        self.cash = 0
+        self.level = 1
+
+        # Upgradeable stats
+        self.sp = 1
+        self.splash = 0
+        self.damage = 5
+
+        # Active buffs
+        self.buffs = []
 
     def handle_movement(self, keys):
         dx, dy = 0, 0
@@ -67,8 +86,8 @@ class Player:
                 dx = -self.dash_speed
             if keys[pygame.K_d]:
                 dx = self.dash_speed
-            self.x += dx * 5
-            self.y += dy * 5
+            self.x += dx * self.sp
+            self.y += dy * self.sp
             self.last_dash = time.time()
 
     def shoot(self, mouse_buttons, mouse_pos):
@@ -77,18 +96,64 @@ class Player:
             angle = math.atan2(my - self.y, mx - self.x)
             velx = math.cos(angle) * 8
             vely = math.sin(angle) * 8
-            self.projectiles.append(Projectile(self.x, self.y, velx, vely))
+            self.projectiles.append(Projectile(self.x, self.y, velx, vely, self.damage, self.splash))
             self.last_shot = time.time()
+
+    def apply_buffs(self):
+        for buff in self.buffs[:]:
+            if time.time() > buff.end_time:
+                if buff.name == "damage":
+                    self.damage -= buff.value
+                elif buff.name == "speed":
+                    self.speed -= buff.value
+                elif buff.name == "firerate":
+                    self.shot_cooldown += buff.value
+                elif buff.name == "sp":
+                    self.sp -= buff.value
+                self.buffs.remove(buff)
+
+    def add_buff(self, buff):
+        self.buffs.append(buff)
+        if buff.name == "damage":
+            self.damage += buff.value
+        elif buff.name == "speed":
+            self.speed += buff.value
+        elif buff.name == "firerate":
+            self.shot_cooldown = max(0.05, self.shot_cooldown - buff.value)
+        elif buff.name == "sp":
+            self.sp += buff.value
+
+    def upgrade(self, stat):
+        cost = 10 * self.level
+        if self.cash >= cost:
+            self.cash -= cost
+            self.level += 1
+            if stat == "speed":
+                self.speed += 1
+            elif stat == "damage":
+                self.damage += 2
+            elif stat == "firerate":
+                self.shot_cooldown = max(0.05, self.shot_cooldown - 0.05)
+            elif stat == "sp":
+                self.sp += 1
+            elif stat == "splash":
+                self.splash += 1
 
     def draw(self, win):
         pygame.draw.circle(win, BLUE, (int(self.x), int(self.y)), self.radius)
         pygame.draw.circle(win, WHITE, (int(self.x), int(self.y)), self.radius, 2)
 
-        # Draw health bar
+        # Health bar
         bar_width, bar_height = 150, 15
-        x, y = 20, 20
-        pygame.draw.rect(win, RED, (x, y, bar_width, bar_height))
-        pygame.draw.rect(win, GREEN, (x, y, bar_width * (self.health / self.max_health), bar_height))
+        pygame.draw.rect(win, RED, (20, 20, bar_width, bar_height))
+        pygame.draw.rect(win, GREEN, (20, 20, bar_width * (self.health / self.max_health), bar_height))
+
+        # XP / Cash
+        font = pygame.font.SysFont(None, 28)
+        xp_text = font.render(f"XP: {self.xp}", True, WHITE)
+        cash_text = font.render(f"Cash: {self.cash}", True, WHITE)
+        WIN.blit(xp_text, (20, 40))
+        WIN.blit(cash_text, (20, 65))
 
         # Projectiles
         for proj in self.projectiles:
@@ -97,12 +162,13 @@ class Player:
 
 # --- Projectile Class ---
 class Projectile:
-    def __init__(self, x, y, velx, vely):
+    def __init__(self, x, y, velx, vely, damage, splash):
         self.x, self.y = x, y
         self.velx, self.vely = velx, vely
         self.radius = 5
         self.color = GREEN
-        self.damage = 5  # smaller so health bar is visible
+        self.damage = damage
+        self.splash = splash
 
     def update(self):
         self.x += self.velx
@@ -136,7 +202,7 @@ class Enemy:
 
         # Collide with player
         if math.hypot(player.x - self.x, player.y - self.y) < self.radius + player.radius:
-            player.health -= 0.3  # damage on touch
+            player.health -= 0.3
 
     def draw(self, win):
         pygame.draw.circle(win, RED, (int(self.x), int(self.y)), self.radius)
@@ -147,6 +213,46 @@ class Enemy:
         bar_width = self.radius * 2
         pygame.draw.rect(win, RED, (self.x - self.radius, self.y - self.radius - 10, bar_width, 5))
         pygame.draw.rect(win, GREEN, (self.x - self.radius, self.y - self.radius - 10, bar_width * (self.health / self.max_health), 5))
+
+
+# --- Shop Function ---
+def open_shop(player):
+    shop_open = True
+    font = pygame.font.SysFont(None, 32)
+    while shop_open:
+        WIN.fill(BLACK)
+        shop_items = [
+            f"1. Speed (+1) - Cost: {10 * player.level}",
+            f"2. Damage (+2) - Cost: {10 * player.level}",
+            f"3. Fire Rate (-0.05s) - Cost: {10 * player.level}",
+            f"4. SP (+1 dash) - Cost: {10 * player.level}",
+            f"5. Splash (+1) - Cost: {10 * player.level}",
+            "ESC. Exit shop"
+        ]
+        cash_text = font.render(f"Cash: {player.cash}", True, WHITE)
+        WIN.blit(cash_text, (20, 20))
+        for i, item in enumerate(shop_items):
+            text = font.render(item, True, WHITE)
+            WIN.blit(text, (20, 60 + i*30))
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    shop_open = False
+                elif event.key == pygame.K_1:
+                    player.upgrade("speed")
+                elif event.key == pygame.K_2:
+                    player.upgrade("damage")
+                elif event.key == pygame.K_3:
+                    player.upgrade("firerate")
+                elif event.key == pygame.K_4:
+                    player.upgrade("sp")
+                elif event.key == pygame.K_5:
+                    player.upgrade("splash")
 
 
 # --- Main Game Loop ---
@@ -165,14 +271,17 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-        # Inputs
         keys = pygame.key.get_pressed()
         mouse_buttons = pygame.mouse.get_pressed()
         mouse_pos = pygame.mouse.get_pos()
 
+        if keys[pygame.K_u]:
+            open_shop(player)
+
         player.handle_movement(keys)
         player.dash(keys)
         player.shoot(mouse_buttons, mouse_pos)
+        player.apply_buffs()
 
         # Update projectiles
         for proj in player.projectiles[:]:
@@ -184,15 +293,27 @@ def main():
         for enemy in enemies[:]:
             enemy.update(player)
             for proj in player.projectiles[:]:
-                if math.hypot(enemy.x - proj.x, enemy.y - proj.y) < enemy.radius + proj.radius:
+                dist = math.hypot(enemy.x - proj.x, enemy.y - proj.y)
+                if dist < enemy.radius + proj.radius:
                     enemy.health -= proj.damage
+                    if proj.splash > 0:
+                        # Splash damage to nearby enemies
+                        for other in enemies:
+                            if other != enemy and math.hypot(other.x - proj.x, other.y - proj.y) < proj.splash*20:
+                                other.health -= proj.damage // 2
                     if proj in player.projectiles:
                         player.projectiles.remove(proj)
                     if enemy.health <= 0:
                         enemies.remove(enemy)
-                        break
+                        player.cash += 5 + wave
+                        player.xp += 3 + wave
+                        # Random buff chance after kill
+                        if random.random() < 0.1:
+                            buff_type = random.choice(["damage", "speed", "firerate", "sp"])
+                            player.add_buff(Buff(buff_type, 1, 10))
+                    break
 
-        # New wave
+        # Wave system
         if not enemies:
             wave += 1
             enemies = [Enemy(wave) for _ in range(5 + wave)]
@@ -202,12 +323,11 @@ def main():
         for enemy in enemies:
             enemy.draw(WIN)
 
-        # Wave counter
         font = pygame.font.SysFont(None, 36)
         wave_text = font.render(f"Wave: {wave}", True, WHITE)
         WIN.blit(wave_text, (WIDTH - 150, 20))
 
-        # Game over
+        # Game Over
         if player.health <= 0:
             over_text = font.render("GAME OVER", True, RED)
             WIN.blit(over_text, (WIDTH // 2 - 80, HEIGHT // 2))
