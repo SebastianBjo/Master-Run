@@ -178,3 +178,79 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pygame
+import sys
+import random
+import math
+import time
+
+# --- Setup ---
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("2D Combat Game")
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED   = (200, 50, 50)
+BLUE  = (50, 120, 255)
+GREEN = (0, 255, 0)
+GREY  = (100, 100, 100)
+
+# Clock
+FPS = 60
+clock = pygame.time.Clock()
+
+
+# --- Player Class ---
+class Player:
+    def __init__(self):
+        self.x, self.y = WIDTH // 2, HEIGHT // 2
+        self.radius = 20
+        self.speed = 4
+        self.dash_speed = 12
+        self.last_dash = 0
+        self.dash_cooldown = 2  # seconds
+        self.last_shot = 0
+        self.shot_cooldown = 0.3  # seconds
+        self.projectiles = []
+
+        # Health
+        self.max_health = 100
+        self.health = self.max_health
+
+    def handle_movement(self, keys):
+        dx, dy = 0, 0
+        if keys[pygame.K_w]:
+            dy = -self.speed
+        if keys[pygame.K_s]:
+            dy = self.speed
+        if keys[pygame.K_a]:
+            dx = -self.speed
+        if keys[pygame.K_d]:
+            dx = self.speed
+        self.x += dx
+        self.y += dy
+
+        # Boundaries
+        self.x = max(self.radius, min(WIDTH - self.radius, self.x))
+        self.y = max(self.radius, min(HEIGHT - self.radius, self.y))
+
+    def dash(self, keys):
+        if keys[pygame.K_e] and time.time() - self.last_dash > self.dash_cooldown:
+            dx, dy = 0, 0
+            if keys[pygame.K_w]:
+                dy = -self.dash_speed
+            if keys[pygame.K_s]:
+                dy = self.dash_speed
+            if keys[pygame.K_a]:
+                dx = -self.dash_speed
+            if keys[pygame.K_d]:
+                dx = self.dash_speed
+            self.x += dx * 5
+            self.y += dy * 5
+            self.last_dash = time.time()
+
+    def shoot(self, mouse_buttons, mouse_pos):
+        if mouse_buttons[0] and ti_
