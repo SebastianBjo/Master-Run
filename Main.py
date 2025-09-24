@@ -343,3 +343,60 @@ def main():
 
 if __name__ == "__main__":
     main()
+class Weapon:
+    def __init__(self, name, damage, fire_rate, splash, special, cost):
+        self.name = name
+        self.damage = damage
+        self.fire_rate = fire_rate
+        self.splash = splash
+        self.special = special
+        self.cost = cost
+
+# Example weapons
+weapons = [
+    Weapon("Pistol", 5, 0.2, 0, None, 10),
+    Weapon("Shotgun", 8, 0.5, 2, "spread", 20),
+    Weapon("Laser", 7, 0.3, 0, "pierce", 30),
+    Weapon("Cannon", 12, 0.8, 3, None, 50)
+]
+
+def open_weapon_shop(player):
+    shop_open = True
+    selected = 0
+    font = pygame.font.SysFont(None, 28)
+
+    while shop_open:
+        WIN.fill(BLACK)
+        cash_text = font.render(f"Cash: {player.cash}", True, WHITE)
+        WIN.blit(cash_text, (20, 20))
+
+        for i, weapon in enumerate(weapons):
+            x, y = 50 + (i % 2) * 350, 80 + (i // 2) * 150
+            color = YELLOW if i == selected else WHITE
+            pygame.draw.rect(WIN, color, (x, y, 300, 120), 2)
+            WIN.blit(font.render(f"{weapon.name} - Cost: {weapon.cost}", True, WHITE), (x+10, y+10))
+            WIN.blit(font.render(f"Dmg:{weapon.damage} FR:{weapon.fire_rate:.2f} Splash:{weapon.splash}", True, WHITE), (x+10, y+40))
+            if weapon.special:
+                WIN.blit(font.render(f"Special: {weapon.special}", True, WHITE), (x+10, y+70))
+
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    shop_open = False
+                elif event.key == pygame.K_DOWN:
+                    selected = (selected + 1) % len(weapons)
+                elif event.key == pygame.K_UP:
+                    selected = (selected - 1) % len(weapons)
+                elif event.key == pygame.K_RETURN:
+                    weapon = weapons[selected]
+                    if player.cash >= weapon.cost:
+                        player.cash -= weapon.cost
+                        player.damage = weapon.damage
+                        player.shot_cooldown = weapon.fire_rate
+                        player.splash = weapon.splash
+                        player.special_weapon = weapon.special
