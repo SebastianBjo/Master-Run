@@ -400,3 +400,15 @@ def open_weapon_shop(player):
                         player.shot_cooldown = weapon.fire_rate
                         player.splash = weapon.splash
                         player.special_weapon = weapon.special
+self.damage = 5
+self.shot_cooldown = 0.3
+self.splash = 0
+self.special_weapon = None
+class Projectile:
+    def __init__(self, x, y, velx, vely, damage, splash, special):
+        self.x, self.y = x, y
+        self.velx, self.vely = velx, vely
+        self.damage = damage
+        self.splash = splash
+        self.special = special
+        self.radius = 5
