@@ -159,10 +159,6 @@ class Enemy:
                     move_x+=(dx/dist)*overlap*0.5
                     move_y+=(dy/dist)*overlap*0.5
         dx=player.x-self.x; dy=player.y-self.y
-        dist=math.hypot(dx,dy)
-      if dist != 0:
-    dx = dx / dist
-    dy = dy / dist
         self.x+=dx*self.speed+move_x; self.y+=dy*self.speed+move_y
         if self.type=="ranged" and time.time()-self.last_attack>self.attack_cd:
             self.shoot(player); self.last_attack=time.time()
